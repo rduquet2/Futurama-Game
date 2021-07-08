@@ -13,14 +13,14 @@ text_font = pygame.font.Font("./Futurama Bold Font.ttf", 12)
 background_music = pygame.mixer.music.load("./theme_song.mp3")
 pygame.mixer.music.play(-1)
 
-# bool to keep track of played or paused
-paused = False
-
 # start time for timer and a best time tracker
 start_time = time.time()
 best_time = 0
 
-# buttons
+# bool to keep track of played or paused
+paused = False
+
+# pause/play buttons
 play_button_image = pygame.image.load("./play_button.png")
 play_button_image = pygame.transform.scale(play_button_image, (40, 40))
 play_button_rect = play_button_image.get_rect(center = (675, 30))
@@ -28,15 +28,21 @@ pause_button_image = pygame.image.load("./pause_button.png")
 pause_button_image = pygame.transform.scale(pause_button_image, (40, 40))
 pause_button_rect = pause_button_image.get_rect(center = (675, 30))
 
-SHIP_VELOCITY = 6
+SHIP_VELOCITY = 10
 SHIP_LASER_COOLDOWN_SPEED = 450
-ALIEN_LASER_COOLDOWN_SPEED = 1000
+ALIEN_LASER_COOLDOWN_SPEED = 750
+ALIEN_SPAWN_SPEED = 1000
+MAX_NUM_ALIENS = 5
 
 # create event for shooting lasers
 ship_laser_shot_event = pygame.USEREVENT + 1
 alien_laser_shot_event = pygame.USEREVENT + 2
+alien_spawn_event = pygame.USEREVENT + 3
 ship_laser_cooldown_finished = True
 alien_laser_cooldown_finished = True
+
+pygame.time.set_timer(alien_laser_shot_event, ALIEN_LASER_COOLDOWN_SPEED)
+pygame.time.set_timer(alien_spawn_event, ALIEN_SPAWN_SPEED)
 
 class PlanetExpressShip(pygame.sprite.Sprite):
     def __init__(self):
@@ -73,7 +79,7 @@ class PlanetExpressShipLaser(pygame.sprite.Sprite):
 
     def update(self):
         # update x position
-        self.rect.x += 5
+        self.rect.x += 15
         # If we are past the right boundary, kill self
         if self.rect.x > width:
             self.kill()
@@ -82,14 +88,43 @@ class Alien(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
 
-        self.image.load("/.aliens.png")
-        self.image = pygame.transform.scale(self.image, (100, 100))
+        self.image = pygame.image.load("./aliens.png")
+        self.image = pygame.transform.scale(self.image, (130, 90))
         self.image = pygame.transform.flip(self.image, True, False)
-        self.rect = self.image.get_rect(center = (width + 10, random.uniform(0, height)))
+        self.rect = self.image.get_rect(center = (width + 10, random.uniform(10, height - 10)))
+        self.move_up = bool(random.getrandbits(1))
         # self.healthbar = 
 
-    # def update(self):
+    def update(self):
+        if self.rect.x > width - 130:
+            self.rect.x -= 3
+        else:
+            if self.move_up:
+                self.rect.y -= 2
+                self.move_up = not self.move_up
+            elif self.move_up == False:
+                self.rect.y += 2
+                self.move_up = not self.move_up
 
+    def create_laser(self):
+        return AlienLaser(self.rect.x + 50, self.rect.y + 50)            
+
+class AlienLaser(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+
+        self.image = pygame.image.load("./red_laser.png")
+        self.image = pygame.transform.scale(self.image, (70, 110))
+        self.image = pygame.transform.flip(self.image, True, False)
+        self.rect = self.image.get_rect(center = (x, y))
+        self.speed = random.uniform(5, 20)
+
+    def update(self):
+        # update x position
+        self.rect.x -= self.speed
+        # If we are past the left boundary, kill self
+        if self.rect.x < 0:
+            self.kill()
 
 class Asteroid(pygame.sprite.Sprite):
     def __init__(self):
@@ -114,8 +149,13 @@ class Asteroid(pygame.sprite.Sprite):
 ship = PlanetExpressShip()
 ship_sprite = pygame.sprite.Group()
 ship_sprite.add(ship)
-
 ship_laser_sprite = pygame.sprite.Group()
+
+alien_sprite = pygame.sprite.Group()
+alien_laser_sprite = pygame.sprite.Group()
+num_aliens = 0
+aliens = []
+
 asteroid_sprite = pygame.sprite.Group()
 
 clock = pygame.time.Clock()
@@ -124,7 +164,6 @@ while 1:
         clock.tick(60)
         screen.fill((0, 0, 0))
         screen.blit(background_image, [0, 0])
-        screen.blit(pause_button_image, pause_button_rect)
         ship.update_health_rect(ship.rect.x, ship.rect.y)
         screen.blit(ship.health_image, ship.health_rect)
 
@@ -137,7 +176,15 @@ while 1:
             elif event.type == ship_laser_shot_event:
                 # when the timeout of LASER_COOLDOWN_SPEED is over, reset it
                 ship_laser_cooldown_finished = True
-                pygame.time.set_timer(ship_laser_shot_event, 0)    
+                pygame.time.set_timer(ship_laser_shot_event, 0)
+            elif event.type == alien_laser_shot_event:
+                for enemy in aliens:
+                    alien_laser_sprite.add(enemy.create_laser())
+            elif event.type == alien_spawn_event and num_aliens < MAX_NUM_ALIENS:
+                alien = Alien()
+                aliens.append(alien)
+                alien_sprite.add(alien)
+                num_aliens += 1
 
         # handle WASD or arrow key movement
         keys = pygame.key.get_pressed()
@@ -170,7 +217,15 @@ while 1:
             
         ship_laser_sprite.draw(screen)
         ship_laser_sprite.update()
+        alien_laser_sprite.draw(screen)
+        alien_laser_sprite.update()
         ship_sprite.draw(screen)
+        alien_sprite.draw(screen)
+        alien_sprite.update()
+
+        collision = pygame.sprite.groupcollide(alien_laser_sprite, ship_sprite, True, False)
+
+        screen.blit(pause_button_image, pause_button_rect)
 
         pygame.mixer.music.unpause()
 
@@ -179,7 +234,7 @@ while 1:
         if elapsed_time > best_time:
             best_time = elapsed_time
 
-        elapsed_time_text = text_font.render('TIME ELAPSED: %.2f' % (elapsed_time), True, (238, 118, 0))
+        elapsed_time_text = text_font.render('ELAPSED TIME: %.2f' % (elapsed_time), True, (238, 118, 0))
         best_time_text = text_font.render('BEST TIME: %.2f' % (best_time), True, (234, 100, 89))
         screen.blit(elapsed_time_text, (10, 10))
         screen.blit(best_time_text, (10, 30))
