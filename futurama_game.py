@@ -1,4 +1,5 @@
 import sys, pygame, random
+import time
 
 pygame.init()
 pygame.mixer.init()
@@ -7,8 +8,17 @@ size = width, height = 706, 540
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption("Planet Express Delivery")
 background_image = pygame.image.load("./background.jpg").convert()
+text_font = pygame.font.Font("./Futurama Bold Font.ttf", 12)
+
 background_music = pygame.mixer.music.load("./theme_song.mp3")
 pygame.mixer.music.play(-1)
+
+# bool to keep track of played or paused
+paused = False
+
+# start time for timer and a best time tracker
+start_time = time.time()
+best_time = 0
 
 # buttons
 play_button_image = pygame.image.load("./play_button.png")
@@ -46,6 +56,9 @@ class PlanetExpressShip(pygame.sprite.Sprite):
     def update_health_rect(self, x, y):
         self.health_rect = self.health_image.get_rect(center = (x + 59, y + 85))
 
+    def update_health(self, x, y):
+        self.health -= 1
+        self.health_image = self.health_images[self.health]    
 
     def create_laser(self):
         return PlanetExpressShipLaser(self.rect.x + 70, self.rect.y + 35)    
@@ -105,9 +118,6 @@ ship_sprite.add(ship)
 ship_laser_sprite = pygame.sprite.Group()
 asteroid_sprite = pygame.sprite.Group()
 
-# bool to keep track of played or paused
-paused = False
-
 clock = pygame.time.Clock()
 while 1:
     if not paused:
@@ -164,8 +174,19 @@ while 1:
 
         pygame.mixer.music.unpause()
 
+        elapsed_time = time.time() - start_time
+
+        if elapsed_time > best_time:
+            best_time = elapsed_time
+
+        elapsed_time_text = text_font.render('TIME ELAPSED: %.2f' % (elapsed_time), True, (238, 118, 0))
+        best_time_text = text_font.render('BEST TIME: %.2f' % (best_time), True, (234, 100, 89))
+        screen.blit(elapsed_time_text, (10, 10))
+        screen.blit(best_time_text, (10, 30))
+
         pygame.display.flip()
     else:
+        start_time = time.time() - elapsed_time
         screen.blit(play_button_image, play_button_rect)
 
         for event in pygame.event.get():
