@@ -15,7 +15,15 @@ pygame.mixer.music.play(-1)
 
 # start time for timer and a best time tracker
 start_time = time.time()
-best_time = 0
+
+def get_best_time():
+    with open("best_time.txt", "r") as file:
+        return file.read()
+
+try:
+    best_time = float(get_best_time())
+except:    
+    best_time = 0
 
 # bool to keep track of played or paused
 paused = False
@@ -53,18 +61,25 @@ class PlanetExpressShip(pygame.sprite.Sprite):
         self.rect = self.image.get_rect(center = (155, 180))
 
         self.health = 10
-        health_images = [pygame.image.load("./heart0.png"), pygame.image.load("./heart0.5.png"), pygame.image.load("./heart1.png"), pygame.image.load("./heart1.5.png"), 
+        self.health_images = [pygame.image.load("./heart0.png"), pygame.image.load("./heart0.5.png"), pygame.image.load("./heart1.png"), pygame.image.load("./heart1.5.png"), 
         pygame.image.load("./heart2.png"), pygame.image.load("./heart2.5.png"), pygame.image.load("./heart3.png"), pygame.image.load("./heart3.5.png"), 
         pygame.image.load("./heart4.png"), pygame.image.load("./heart4.5.png"), pygame.image.load("./heart5.png")]
-        self.health_image = health_images[self.health]
-        self.health_image = pygame.transform.scale(self.health_image, (75, 15)) 
+        self.health_image = self.health_images[self.health]
+        self.health_image = pygame.transform.scale(self.health_image, (75, 15))
 
-    def update_health_rect(self, x, y):
+        self.ammo = 5
+        self.ammo_image = pygame.image.load("./ammo.png")
+        self.ammo_image = pygame.transform.scale(self.ammo_image, (40, 23))
+        self.ammo_rect = self.ammo_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))
+
+
+    def update_healthbar_position(self, x, y):
         self.health_rect = self.health_image.get_rect(center = (x + 59, y + 85))
 
-    def update_health(self, x, y):
+    def update_health(self):
         self.health -= 1
-        self.health_image = self.health_images[self.health]    
+        self.health_image = self.health_images[self.health]
+        self.health_image = pygame.transform.scale(self.health_image, (75, 15))     
 
     def create_laser(self):
         return PlanetExpressShipLaser(self.rect.x + 70, self.rect.y + 35)    
@@ -91,7 +106,7 @@ class Alien(pygame.sprite.Sprite):
         self.image = pygame.image.load("./aliens.png")
         self.image = pygame.transform.scale(self.image, (130, 90))
         self.image = pygame.transform.flip(self.image, True, False)
-        self.rect = self.image.get_rect(center = (width + 10, random.uniform(10, height - 10)))
+        self.rect = self.image.get_rect(center = (width + 10, random.uniform(15, height - 15)))
         self.move_up = bool(random.getrandbits(1))
         # self.healthbar = 
 
@@ -164,7 +179,7 @@ while 1:
         clock.tick(60)
         screen.fill((0, 0, 0))
         screen.blit(background_image, [0, 0])
-        ship.update_health_rect(ship.rect.x, ship.rect.y)
+        ship.update_healthbar_position(ship.rect.x, ship.rect.y)
         screen.blit(ship.health_image, ship.health_rect)
 
         for event in pygame.event.get():
@@ -209,11 +224,15 @@ while 1:
             ship.rect.bottom = height
 
         if keys[pygame.K_SPACE]:
-            if ship_laser_cooldown_finished:
+            if ship_laser_cooldown_finished and ship.ammo > 0:
                 ship_laser_sprite.add(ship.create_laser())
+                ship.ammo -= 1
                 ship_laser_cooldown_finished = False
                 # timeout of LASER_COOLDOWN_SPEED
-                pygame.time.set_timer(ship_laser_shot_event, SHIP_LASER_COOLDOWN_SPEED)                
+                pygame.time.set_timer(ship_laser_shot_event, SHIP_LASER_COOLDOWN_SPEED)
+
+        if ship.ammo == 0:
+            screen.blit(ship.ammo_image, ship.ammo_rect)                          
             
         ship_laser_sprite.draw(screen)
         ship_laser_sprite.update()
@@ -223,7 +242,12 @@ while 1:
         alien_sprite.draw(screen)
         alien_sprite.update()
 
-        collision = pygame.sprite.groupcollide(alien_laser_sprite, ship_sprite, True, False)
+        # check for collisions
+        collision = pygame.sprite.groupcollide(alien_laser_sprite, ship_sprite, True, False, collided=pygame.sprite.collide_rect_ratio(0.5))
+        
+        # if collision != None:
+        #     ship.update_health()
+        #     print(ship.health)
 
         screen.blit(pause_button_image, pause_button_rect)
 
@@ -231,13 +255,17 @@ while 1:
 
         elapsed_time = time.time() - start_time
 
-        if elapsed_time > best_time:
+        if best_time < elapsed_time:
             best_time = elapsed_time
+        with open("best_time.txt", "w") as file:
+            file.write(str(best_time))        
 
-        elapsed_time_text = text_font.render('ELAPSED TIME: %.2f' % (elapsed_time), True, (238, 118, 0))
-        best_time_text = text_font.render('BEST TIME: %.2f' % (best_time), True, (234, 100, 89))
+        elapsed_time_text = text_font.render('ELAPSED TIME: %.2f' % (elapsed_time), True, (234, 100, 89))
+        best_time_text = text_font.render('BEST TIME: %.2f' % (best_time), True, (238, 118, 0))
+        ammo_left_text = text_font.render('LASERS REMAINING: ' + str(ship.ammo), True, (161, 95, 169))
         screen.blit(elapsed_time_text, (10, 10))
         screen.blit(best_time_text, (10, 30))
+        screen.blit(ammo_left_text, (10, 50))
 
         pygame.display.flip()
     else:
