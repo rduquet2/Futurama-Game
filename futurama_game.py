@@ -161,6 +161,37 @@ class Asteroid(pygame.sprite.Sprite):
         if self.rect.right < 0:
             self.kill()
 
+class Explosion(pygame.sprite.Sprite):
+    def __init__(self, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.should_animate = False
+        self.explosion_sprites = []
+        self.explosion_sprites.append(pygame.image.load("explosion0.png"))
+        self.explosion_sprites.append(pygame.image.load("explosion1.png"))
+        self.explosion_sprites.append(pygame.image.load("explosion2.png"))
+        self.explosion_sprites.append(pygame.image.load("explosion3.png"))
+        self.explosion_sprites.append(pygame.image.load("explosion4.png"))
+        self.explosion_sprites.append(pygame.image.load("explosion5.png"))
+        self.explosion_sprites.append(pygame.image.load("explosion6.png"))
+        self.explosion_sprites.append(pygame.image.load("explosion7.png"))
+        
+        self.curr_sprite = 0
+        self.image = self.explosion_sprites[self.curr_sprite]
+        self.rect = self.image.get_rect(center = (x, y))
+
+    def animate(self):
+        self.should_animate = True    
+
+    def update(self, animation_speed):
+        if self.should_animate == True:
+            self.curr_sprite += animation_speed
+
+            if self.curr_sprite >= len(self.explosion_sprites):
+                self.curr_sprite = 0
+                self.should_animate = False  
+
+            self.image = self.explosion_sprites[self.curr_sprite]  
+
 ship = PlanetExpressShip()
 ship_sprite = pygame.sprite.Group()
 ship_sprite.add(ship)
@@ -172,6 +203,8 @@ num_aliens = 0
 aliens = []
 
 asteroid_sprite = pygame.sprite.Group()
+
+explosion = Explosion(50, 50)
 
 clock = pygame.time.Clock()
 while 1:
@@ -233,7 +266,7 @@ while 1:
 
         if ship.ammo == 0:
             screen.blit(ship.ammo_image, ship.ammo_rect)                          
-            
+           
         ship_laser_sprite.draw(screen)
         ship_laser_sprite.update()
         alien_laser_sprite.draw(screen)
@@ -243,7 +276,7 @@ while 1:
         alien_sprite.update()
 
         # check for collisions
-        collision = pygame.sprite.groupcollide(alien_laser_sprite, ship_sprite, True, False, collided=pygame.sprite.collide_rect_ratio(0.5))
+        collision = pygame.sprite.groupcollide(alien_laser_sprite, ship_sprite, True, False, collided=pygame.sprite.collide_rect_ratio(0.3))
         
         # if collision != None:
         #     ship.update_health()
