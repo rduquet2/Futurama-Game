@@ -41,16 +41,20 @@ SHIP_LASER_COOLDOWN_SPEED = 450
 ALIEN_LASER_COOLDOWN_SPEED = 750
 ALIEN_SPAWN_SPEED = 1000
 MAX_NUM_ALIENS = 5
+ASTEROID_SPAWN_SPEED = 500
+MAX_NUM_ASTEROIDS = 20
 
 # create event for shooting lasers
 ship_laser_shot_event = pygame.USEREVENT + 1
 alien_laser_shot_event = pygame.USEREVENT + 2
 alien_spawn_event = pygame.USEREVENT + 3
+asteroid_spawn_event = pygame.USEREVENT + 4
 ship_laser_cooldown_finished = True
 alien_laser_cooldown_finished = True
 
 pygame.time.set_timer(alien_laser_shot_event, ALIEN_LASER_COOLDOWN_SPEED)
 pygame.time.set_timer(alien_spawn_event, ALIEN_SPAWN_SPEED)
+pygame.time.set_timer(asteroid_spawn_event, ASTEROID_SPAWN_SPEED)
 
 class PlanetExpressShip(pygame.sprite.Sprite):
     def __init__(self):
@@ -60,14 +64,36 @@ class PlanetExpressShip(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(self.image, (100, 100))
         self.rect = self.image.get_rect(center = (155, 180))
 
-        self.health = 10
-        self.health_images = [pygame.image.load("./heart0.png"), pygame.image.load("./heart0.5.png"), pygame.image.load("./heart1.png"), pygame.image.load("./heart1.5.png"), 
-        pygame.image.load("./heart2.png"), pygame.image.load("./heart2.5.png"), pygame.image.load("./heart3.png"), pygame.image.load("./heart3.5.png"), 
-        pygame.image.load("./heart4.png"), pygame.image.load("./heart4.5.png"), pygame.image.load("./heart5.png")]
-        self.health_image = self.health_images[self.health]
-        self.health_image = pygame.transform.scale(self.health_image, (75, 15))
+        self.heart0_image = pygame.image.load("./heart0.png")
+        self.heart0_image = pygame.transform.scale(self.heart0_image, (75, 15))
+        self.heart1_image = pygame.image.load("./heart0.5.png")
+        self.heart1_image = pygame.transform.scale(self.heart1_image, (75, 15))
+        self.heart2_image = pygame.image.load("./heart1.png")
+        self.heart2_image = pygame.transform.scale(self.heart2_image, (75, 15))
+        self.heart3_image = pygame.image.load("./heart1.5.png")
+        self.heart3_image = pygame.transform.scale(self.heart3_image, (75, 15))
+        self.heart4_image = pygame.image.load("./heart2.png")
+        self.heart4_image = pygame.transform.scale(self.heart4_image, (75, 15))
+        self.heart5_image = pygame.image.load("./heart2.5.png")
+        self.heart5_image = pygame.transform.scale(self.heart5_image, (75, 15))
+        self.heart6_image = pygame.image.load("./heart3.png")
+        self.heart6_image = pygame.transform.scale(self.heart6_image, (75, 15))
+        self.heart7_image = pygame.image.load("./heart3.5.png")
+        self.heart7_image = pygame.transform.scale(self.heart7_image, (75, 15))
+        self.heart8_image = pygame.image.load("./heart4.png")
+        self.heart8_image = pygame.transform.scale(self.heart8_image, (75, 15))
+        self.heart9_image = pygame.image.load("./heart4.5.png")
+        self.heart9_image = pygame.transform.scale(self.heart9_image, (75, 15))
+        self.heart10_image = pygame.image.load("./heart5.png")
+        self.heart10_image = pygame.transform.scale(self.heart10_image, (75, 15))
 
-        self.ammo = 5
+        self.health = 10
+        self.health_images = [self.heart0_image, self.heart1_image, self.heart2_image, self.heart3_image, 
+        self.heart4_image, self.heart5_image, self.heart6_image, self.heart7_image, self.heart8_image, 
+        self.heart9_image, self.heart10_image]
+        self.health_image = self.health_images[self.health]
+
+        self.ammo = 30
         self.ammo_image = pygame.image.load("./ammo.png")
         self.ammo_image = pygame.transform.scale(self.ammo_image, (40, 23))
         self.ammo_rect = self.ammo_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))
@@ -79,7 +105,12 @@ class PlanetExpressShip(pygame.sprite.Sprite):
     def update_health(self):
         self.health -= 1
         self.health_image = self.health_images[self.health]
-        self.health_image = pygame.transform.scale(self.health_image, (75, 15))     
+        self.health_image = pygame.transform.scale(self.health_image, (75, 15))
+
+    def update_ammo(self):
+        if self.ammo == 0 and self.rect.colliderect(self.ammo_rect):
+            self.ammo = 30
+            self.ammo_rect = self.ammo_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))
 
     def create_laser(self):
         return PlanetExpressShipLaser(self.rect.x + 70, self.rect.y + 35)    
@@ -200,9 +231,13 @@ ship_laser_sprite = pygame.sprite.Group()
 alien_sprite = pygame.sprite.Group()
 alien_laser_sprite = pygame.sprite.Group()
 num_aliens = 0
+
+# used for collision detection
 aliens = []
+alien_lasers = []
 
 asteroid_sprite = pygame.sprite.Group()
+num_asteroids = 0
 
 explosion = Explosion(50, 50)
 
@@ -227,12 +262,19 @@ while 1:
                 pygame.time.set_timer(ship_laser_shot_event, 0)
             elif event.type == alien_laser_shot_event:
                 for enemy in aliens:
-                    alien_laser_sprite.add(enemy.create_laser())
+                    alien_laser = enemy.create_laser()
+                    alien_laser_sprite.add(alien_laser)
+                    alien_lasers.append(alien_laser.rect)
             elif event.type == alien_spawn_event and num_aliens < MAX_NUM_ALIENS:
                 alien = Alien()
                 aliens.append(alien)
                 alien_sprite.add(alien)
                 num_aliens += 1
+            elif event.type == asteroid_spawn_event and num_asteroids < MAX_NUM_ASTEROIDS:
+                asteroid = Asteroid()
+                asteroid_sprite.add(asteroid)
+                num_asteroids += 1
+
 
         # handle WASD or arrow key movement
         keys = pygame.key.get_pressed()
@@ -269,14 +311,19 @@ while 1:
            
         ship_laser_sprite.draw(screen)
         ship_laser_sprite.update()
+        ship.update_ammo()
         alien_laser_sprite.draw(screen)
         alien_laser_sprite.update()
         ship_sprite.draw(screen)
         alien_sprite.draw(screen)
         alien_sprite.update()
+        asteroid_sprite.draw(screen)
+        asteroid_sprite.update()
 
         # check for collisions
-        collision = pygame.sprite.groupcollide(alien_laser_sprite, ship_sprite, True, False, collided=pygame.sprite.collide_rect_ratio(0.3))
+        # collision = pygame.sprite.groupcollide(alien_laser_sprite, ship_sprite, True, False, collided=pygame.sprite.collide_rect_ratio(0.3))
+        collision = ship.rect.collidelist(alien_lasers)
+        print(collision)
         
         # if collision != None:
         #     ship.update_health()
