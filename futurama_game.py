@@ -43,25 +43,28 @@ ALIEN_SPAWN_SPEED = 1000
 MAX_NUM_ALIENS = 5
 ASTEROID_SPAWN_SPEED = 500
 MAX_NUM_ASTEROIDS = 20
+ALIEN_VERTICAL_MOVE_SPEED = 500
 
 # create event for shooting lasers
 ship_laser_shot_event = pygame.USEREVENT + 1
 alien_laser_shot_event = pygame.USEREVENT + 2
 alien_spawn_event = pygame.USEREVENT + 3
 asteroid_spawn_event = pygame.USEREVENT + 4
+alien_vertical_move_event = pygame.USEREVENT + 5
 ship_laser_cooldown_finished = True
 alien_laser_cooldown_finished = True
 
 pygame.time.set_timer(alien_laser_shot_event, ALIEN_LASER_COOLDOWN_SPEED)
 pygame.time.set_timer(alien_spawn_event, ALIEN_SPAWN_SPEED)
 pygame.time.set_timer(asteroid_spawn_event, ASTEROID_SPAWN_SPEED)
+pygame.time.set_timer(alien_vertical_move_event, ALIEN_VERTICAL_MOVE_SPEED)
 
 class PlanetExpressShip(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
 
         self.image = pygame.image.load("./planet_express_ship.png")
-        self.image = pygame.transform.scale(self.image, (100, 100))
+        self.image = pygame.transform.scale(self.image, (100, 50))
         self.rect = self.image.get_rect(center = (155, 180))
 
         self.heart0_image = pygame.image.load("./heart0.png")
@@ -95,17 +98,20 @@ class PlanetExpressShip(pygame.sprite.Sprite):
 
         self.ammo = 30
         self.ammo_image = pygame.image.load("./ammo.png")
-        self.ammo_image = pygame.transform.scale(self.ammo_image, (40, 23))
+        self.ammo_image = pygame.transform.scale(self.ammo_image, (25, 23))
         self.ammo_rect = self.ammo_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))
 
+        self.last_hit = 0
 
     def update_healthbar_position(self, x, y):
-        self.health_rect = self.health_image.get_rect(center = (x + 59, y + 85))
+        self.health_rect = self.health_image.get_rect(center = (x + 59, y + 60))
 
-    def update_health(self):
+    def update_health(self, x, y):
+        self.last_hit = pygame.time.get_ticks()
         self.health -= 1
         self.health_image = self.health_images[self.health]
         self.health_image = pygame.transform.scale(self.health_image, (75, 15))
+        return Explosion(x, y)  
 
     def update_ammo(self):
         if self.ammo == 0 and self.rect.colliderect(self.ammo_rect):
@@ -113,14 +119,14 @@ class PlanetExpressShip(pygame.sprite.Sprite):
             self.ammo_rect = self.ammo_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))
 
     def create_laser(self):
-        return PlanetExpressShipLaser(self.rect.x + 70, self.rect.y + 35)    
+        return PlanetExpressShipLaser(self.rect.x + 55, self.rect.y + 15)    
 
 class PlanetExpressShipLaser(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
 
         self.image = pygame.image.load("./purple_laser.png")
-        self.image = pygame.transform.scale(self.image, (70, 110))
+        self.image = pygame.transform.scale(self.image, (40, 20))
         self.rect = self.image.get_rect(center = (x, y))
 
     def update(self):
@@ -135,32 +141,33 @@ class Alien(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self)
 
         self.image = pygame.image.load("./aliens.png")
-        self.image = pygame.transform.scale(self.image, (130, 90))
+        self.image = pygame.transform.scale(self.image, (78, 54))
         self.image = pygame.transform.flip(self.image, True, False)
-        self.rect = self.image.get_rect(center = (width + 10, random.uniform(15, height - 15)))
+        # make the alien rects separated in sections but created randomly in those sections
+        self.rect = self.image.get_rect(center = (width + 10, random.uniform(25 + 108 * num_aliens, 93 + 108 * num_aliens)))
         self.move_up = bool(random.getrandbits(1))
-        # self.healthbar = 
 
     def update(self):
+        if self.move_up:
+            self.rect.y -= 20
+            self.move_up = not self.move_up
+        elif self.move_up == False:
+            self.rect.y += 20
+            self.move_up = not self.move_up
+
+    def set_closest_x_pos(self):
         if self.rect.x > width - 130:
-            self.rect.x -= 3
-        else:
-            if self.move_up:
-                self.rect.y -= 2
-                self.move_up = not self.move_up
-            elif self.move_up == False:
-                self.rect.y += 2
-                self.move_up = not self.move_up
+            self.rect.x -= 3                         
 
     def create_laser(self):
-        return AlienLaser(self.rect.x + 50, self.rect.y + 50)            
+        return AlienLaser(self.rect.x + 35, self.rect.y + 35)            
 
 class AlienLaser(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
 
         self.image = pygame.image.load("./red_laser.png")
-        self.image = pygame.transform.scale(self.image, (70, 110))
+        self.image = pygame.transform.scale(self.image, (40, 20))
         self.image = pygame.transform.flip(self.image, True, False)
         self.rect = self.image.get_rect(center = (x, y))
         self.speed = random.uniform(5, 20)
@@ -196,15 +203,25 @@ class Explosion(pygame.sprite.Sprite):
     def __init__(self, x, y):
         pygame.sprite.Sprite.__init__(self)
         self.should_animate = False
-        self.explosion_sprites = []
-        self.explosion_sprites.append(pygame.image.load("explosion0.png"))
-        self.explosion_sprites.append(pygame.image.load("explosion1.png"))
-        self.explosion_sprites.append(pygame.image.load("explosion2.png"))
-        self.explosion_sprites.append(pygame.image.load("explosion3.png"))
-        self.explosion_sprites.append(pygame.image.load("explosion4.png"))
-        self.explosion_sprites.append(pygame.image.load("explosion5.png"))
-        self.explosion_sprites.append(pygame.image.load("explosion6.png"))
-        self.explosion_sprites.append(pygame.image.load("explosion7.png"))
+        self.explosion0_image = pygame.image.load("./explosion0.png")
+        self.explosion0_image = pygame.transform.scale(self.explosion0_image, (30, 30))
+        self.explosion1_image = pygame.image.load("./explosion1.png")
+        self.explosion1_image = pygame.transform.scale(self.explosion1_image, (30, 30))
+        self.explosion2_image = pygame.image.load("./explosion2.png")
+        self.explosion2_image = pygame.transform.scale(self.explosion2_image, (30, 30))
+        self.explosion3_image = pygame.image.load("./explosion3.png")
+        self.explosion3_image = pygame.transform.scale(self.explosion3_image, (30, 30))
+        self.explosion4_image = pygame.image.load("./explosion4.png")
+        self.explosion4_image = pygame.transform.scale(self.explosion4_image, (30, 30))
+        self.explosion5_image = pygame.image.load("./explosion5.png")
+        self.explosion5_image = pygame.transform.scale(self.explosion5_image, (30, 30))
+        self.explosion6_image = pygame.image.load("./explosion6.png")
+        self.explosion6_image = pygame.transform.scale(self.explosion6_image, (30, 30))
+        self.explosion7_image = pygame.image.load("./explosion7.png")
+        self.explosion7_image = pygame.transform.scale(self.explosion7_image, (30, 30))
+        self.health = 10
+        self.explosion_sprites = [self.explosion0_image, self.explosion1_image, self.explosion2_image, self.explosion3_image, self.explosion4_image, 
+        self.explosion5_image, self.explosion6_image, self.explosion7_image]
         
         self.curr_sprite = 0
         self.image = self.explosion_sprites[self.curr_sprite]
@@ -221,7 +238,8 @@ class Explosion(pygame.sprite.Sprite):
                 self.curr_sprite = 0
                 self.should_animate = False  
 
-            self.image = self.explosion_sprites[self.curr_sprite]  
+            self.image = self.explosion_sprites[int(self.curr_sprite)]
+            screen.blit(self.image, self.rect)      
 
 ship = PlanetExpressShip()
 ship_sprite = pygame.sprite.Group()
@@ -230,20 +248,34 @@ ship_laser_sprite = pygame.sprite.Group()
 
 alien_sprite = pygame.sprite.Group()
 alien_laser_sprite = pygame.sprite.Group()
+# this counter is used to spawn the aliens after alien spawn cooldown
 num_aliens = 0
-
-# used for collision detection
-aliens = []
-alien_lasers = []
+# this counter is used to check if we should spawn the asteroids 
+# (otherwise aliens would continuously spawn if num_aliens -= 1 used after killing aliens)
+aliens_killed = 0
 
 asteroid_sprite = pygame.sprite.Group()
 num_asteroids = 0
+should_spawn_asteroids = False
 
-explosion = Explosion(50, 50)
+# used for collision detection
+aliens = []
+alien_rects = []
+alien_lasers = []
+alien_laser_rects = []
+ship_lasers = []
+ship_laser_rects = []
+
+# generate the explosions (the positions here are random and are updated in the game loop)
+ship_explosion = Explosion(350, 350)
+alien_explosion = Explosion(350, 350)
 
 clock = pygame.time.Clock()
 while 1:
     if not paused:
+        if ship.health == 0:
+            sys.exit()
+
         clock.tick(60)
         screen.fill((0, 0, 0))
         screen.blit(background_image, [0, 0])
@@ -264,17 +296,21 @@ while 1:
                 for enemy in aliens:
                     alien_laser = enemy.create_laser()
                     alien_laser_sprite.add(alien_laser)
-                    alien_lasers.append(alien_laser.rect)
+                    alien_lasers.append(alien_laser)
+                    alien_laser_rects.append(alien_laser.rect)
             elif event.type == alien_spawn_event and num_aliens < MAX_NUM_ALIENS:
                 alien = Alien()
                 aliens.append(alien)
+                alien_rects.append(alien.rect)
                 alien_sprite.add(alien)
                 num_aliens += 1
-            elif event.type == asteroid_spawn_event and num_asteroids < MAX_NUM_ASTEROIDS:
+            elif event.type == asteroid_spawn_event and should_spawn_asteroids == True and num_asteroids < MAX_NUM_ASTEROIDS:
+                aliens_killed = 0
                 asteroid = Asteroid()
                 asteroid_sprite.add(asteroid)
                 num_asteroids += 1
-
+            elif event.type == alien_vertical_move_event:
+                alien_sprite.update()    
 
         # handle WASD or arrow key movement
         keys = pygame.key.get_pressed()
@@ -298,13 +334,52 @@ while 1:
         if ship.rect.bottom > height:
             ship.rect.bottom = height
 
+        # fire laser from ship if space bar pressed with a delay
         if keys[pygame.K_SPACE]:
             if ship_laser_cooldown_finished and ship.ammo > 0:
-                ship_laser_sprite.add(ship.create_laser())
+                ship_laser = ship.create_laser()
+                ship_laser_sprite.add(ship_laser)
+                ship_lasers.append(ship_laser)
+                ship_laser_rects.append(ship_laser.rect)
                 ship.ammo -= 1
                 ship_laser_cooldown_finished = False
                 # timeout of LASER_COOLDOWN_SPEED
                 pygame.time.set_timer(ship_laser_shot_event, SHIP_LASER_COOLDOWN_SPEED)
+
+        # check for laser/asteroid collisions
+        enemy_laser_with_ship_collision = ship.rect.collidelist(alien_laser_rects)
+
+        for ship_laser_rect in ship_laser_rects[:]:
+            ship_laser_with_alien_collision = ship_laser_rect.collidelist(alien_rects)
+            if ship_laser_with_alien_collision != -1:
+                alien_explosion = Explosion(alien_rects[ship_laser_with_alien_collision].x + 10, alien_rects[ship_laser_with_alien_collision].y + 20)
+                alien_explosion.animate()
+                # remove the ship lasers + associated rects from lists and sprite group, 
+                # same with the aliens + their associated rects
+                ship_laser_index = ship_laser_rects.index(ship_laser_rect)
+                ship_laser_rects.remove(ship_laser_rect)
+                ship_laser_sprite.remove(ship_lasers[ship_laser_index])
+                del ship_lasers[ship_laser_index]
+                del alien_rects[ship_laser_with_alien_collision]
+                alien_sprite.remove(aliens[ship_laser_with_alien_collision])
+                del aliens[ship_laser_with_alien_collision]
+                aliens_killed += 1                     
+                
+        if enemy_laser_with_ship_collision != -1 and pygame.time.get_ticks() - ship.last_hit > 250:
+            ship_explosion = ship.update_health(ship.rect.x + 95, ship.rect.y + 25)
+            # destroy the alien laser and associated rect
+            alien_laser_sprite.remove(alien_lasers[enemy_laser_with_ship_collision])
+            del alien_lasers[enemy_laser_with_ship_collision]
+            del alien_laser_rects[enemy_laser_with_ship_collision]
+            ship_explosion.animate()
+
+        if aliens_killed == MAX_NUM_ALIENS:
+            should_spawn_asteroids = True
+
+        if num_asteroids == MAX_NUM_ASTEROIDS:
+            num_asteroids = 0
+            should_spawn_asteroids = False
+            num_aliens = 0                 
 
         if ship.ammo == 0:
             screen.blit(ship.ammo_image, ship.ammo_rect)                          
@@ -316,18 +391,12 @@ while 1:
         alien_laser_sprite.update()
         ship_sprite.draw(screen)
         alien_sprite.draw(screen)
-        alien_sprite.update()
+        for enemy in aliens:
+            enemy.set_closest_x_pos()
         asteroid_sprite.draw(screen)
         asteroid_sprite.update()
-
-        # check for collisions
-        # collision = pygame.sprite.groupcollide(alien_laser_sprite, ship_sprite, True, False, collided=pygame.sprite.collide_rect_ratio(0.3))
-        collision = ship.rect.collidelist(alien_lasers)
-        print(collision)
-        
-        # if collision != None:
-        #     ship.update_health()
-        #     print(ship.health)
+        ship_explosion.update(0.3)
+        alien_explosion.update(0.3)
 
         screen.blit(pause_button_image, pause_button_rect)
 
