@@ -96,10 +96,14 @@ class PlanetExpressShip(pygame.sprite.Sprite):
         self.heart9_image, self.heart10_image]
         self.health_image = self.health_images[self.health]
 
-        self.ammo = 30
+        self.ammo = 10
         self.ammo_image = pygame.image.load("./ammo.png")
         self.ammo_image = pygame.transform.scale(self.ammo_image, (25, 23))
         self.ammo_rect = self.ammo_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))
+
+        self.health_icon_image = pygame.image.load("./health_icon.png")
+        self.health_icon_image = pygame.transform.scale(self.health_icon_image, (30, 30))
+        self.health_icon_rect = self.health_icon_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))
 
         self.last_hit = 0
 
@@ -110,13 +114,18 @@ class PlanetExpressShip(pygame.sprite.Sprite):
         self.last_hit = pygame.time.get_ticks()
         self.health -= 1
         self.health_image = self.health_images[self.health]
-        self.health_image = pygame.transform.scale(self.health_image, (75, 15))
         return Explosion(x, y)  
 
     def update_ammo(self):
         if self.ammo == 0 and self.rect.colliderect(self.ammo_rect):
-            self.ammo = 30
+            self.ammo = 10
             self.ammo_rect = self.ammo_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))
+
+    def update_health_icon(self):
+        if self.health <= 2 and self.rect.colliderect(self.health_icon_rect):
+            self.health = 10
+            self.health_image = self.health_images[self.health]
+            self.health_icon_rect = self.health_icon_image.get_rect(center = (random.uniform(10, width - 140), random.uniform(10, height - 10)))      
 
     def create_laser(self):
         return PlanetExpressShipLaser(self.rect.x + 55, self.rect.y + 15)    
@@ -191,7 +200,8 @@ class Asteroid(pygame.sprite.Sprite):
         self.y_speed = random.uniform(-10, 10)
 
     def update(self):
-        self.rect = self.rect.move(self.x_speed, self.y_speed)
+        self.rect.x += self.x_speed
+        self.rect.y += self.y_speed
 
         if self.rect.bottom > height or self.rect.top < 0:
             self.y_speed = self.y_speed * -1
@@ -265,10 +275,13 @@ alien_lasers = []
 alien_laser_rects = []
 ship_lasers = []
 ship_laser_rects = []
+asteroids = []
+asteroid_rects = []
 
 # generate the explosions (the positions here are random and are updated in the game loop)
 ship_explosion = Explosion(350, 350)
 alien_explosion = Explosion(350, 350)
+asteroid_explosion = Explosion(350, 350)
 
 clock = pygame.time.Clock()
 while 1:
@@ -307,6 +320,8 @@ while 1:
             elif event.type == asteroid_spawn_event and should_spawn_asteroids == True and num_asteroids < MAX_NUM_ASTEROIDS:
                 aliens_killed = 0
                 asteroid = Asteroid()
+                asteroids.append(asteroid)
+                asteroid_rects.append(asteroid.rect)
                 asteroid_sprite.add(asteroid)
                 num_asteroids += 1
             elif event.type == alien_vertical_move_event:
@@ -347,10 +362,10 @@ while 1:
                 pygame.time.set_timer(ship_laser_shot_event, SHIP_LASER_COOLDOWN_SPEED)
 
         # check for laser/asteroid collisions
-        enemy_laser_with_ship_collision = ship.rect.collidelist(alien_laser_rects)
-
+        # ship laser + alien collisions
         for ship_laser_rect in ship_laser_rects[:]:
             ship_laser_with_alien_collision = ship_laser_rect.collidelist(alien_rects)
+            ship_laser_with_asteroid_collision = ship_laser_rect.collidelist(asteroid_rects)
             if ship_laser_with_alien_collision != -1:
                 alien_explosion = Explosion(alien_rects[ship_laser_with_alien_collision].x + 10, alien_rects[ship_laser_with_alien_collision].y + 20)
                 alien_explosion.animate()
@@ -363,14 +378,40 @@ while 1:
                 del alien_rects[ship_laser_with_alien_collision]
                 alien_sprite.remove(aliens[ship_laser_with_alien_collision])
                 del aliens[ship_laser_with_alien_collision]
-                aliens_killed += 1                     
-                
+                aliens_killed += 1
+            if ship_laser_with_asteroid_collision != -1:
+                asteroid_explosion = Explosion(asteroid_rects[ship_laser_with_asteroid_collision].x + 35, asteroid_rects[ship_laser_with_asteroid_collision].y + 35)
+                asteroid_explosion.animate()
+                # remove the ship lasers + associated rects from lists and sprite group, 
+                # same with the asteroids + their associated rects
+                ship_laser_index = ship_laser_rects.index(ship_laser_rect)
+                ship_laser_rects.remove(ship_laser_rect)
+                ship_laser_sprite.remove(ship_lasers[ship_laser_index])
+                del ship_lasers[ship_laser_index]
+                del asteroid_rects[ship_laser_with_asteroid_collision]
+                asteroid_sprite.remove(asteroids[ship_laser_with_asteroid_collision])
+                del asteroids[ship_laser_with_asteroid_collision]                         
+        
+        # alien laser + ship collisions
+        enemy_laser_with_ship_collision = ship.rect.collidelist(alien_laser_rects)
+
         if enemy_laser_with_ship_collision != -1 and pygame.time.get_ticks() - ship.last_hit > 250:
             ship_explosion = ship.update_health(ship.rect.x + 95, ship.rect.y + 25)
             # destroy the alien laser and associated rect
             alien_laser_sprite.remove(alien_lasers[enemy_laser_with_ship_collision])
             del alien_lasers[enemy_laser_with_ship_collision]
             del alien_laser_rects[enemy_laser_with_ship_collision]
+            ship_explosion.animate()
+
+        # asteroid + ship collisions
+        asteroid_with_ship_collision = ship.rect.collidelist(asteroid_rects)
+
+        if asteroid_with_ship_collision != -1 and pygame.time.get_ticks() - ship.last_hit > 250:
+            ship_explosion = ship.update_health(ship.rect.x + 95, ship.rect.y + 25)
+            # destroy the asteroid and associated rect
+            asteroid_sprite.remove(asteroids[asteroid_with_ship_collision])
+            del asteroids[asteroid_with_ship_collision]
+            del asteroid_rects[asteroid_with_ship_collision]
             ship_explosion.animate()
 
         if aliens_killed == MAX_NUM_ALIENS:
@@ -381,12 +422,16 @@ while 1:
             should_spawn_asteroids = False
             num_aliens = 0                 
 
+        if ship.health <= 2:
+            screen.blit(ship.health_icon_image, ship.health_icon_rect)
+        
         if ship.ammo == 0:
             screen.blit(ship.ammo_image, ship.ammo_rect)                          
            
         ship_laser_sprite.draw(screen)
         ship_laser_sprite.update()
         ship.update_ammo()
+        ship.update_health_icon()
         alien_laser_sprite.draw(screen)
         alien_laser_sprite.update()
         ship_sprite.draw(screen)
@@ -397,6 +442,7 @@ while 1:
         asteroid_sprite.update()
         ship_explosion.update(0.3)
         alien_explosion.update(0.3)
+        asteroid_explosion.update(0.3)
 
         screen.blit(pause_button_image, pause_button_rect)
 
