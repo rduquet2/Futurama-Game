@@ -9,3 +9,9 @@ Use either WASD or the arrow keys to fly around the spaceship. Press space to fi
 
 # Images and Video
 ![futurama_game_demo_gif](https://user-images.githubusercontent.com/73140191/125521165-8879ffa7-568d-480d-85d7-f5e46720a81f.gif)
+
+![futurama_game_image0](https://user-images.githubusercontent.com/73140191/125521793-cabc2659-1da0-4e6f-b24e-f797771f6a0a.jpg)
+
+![futurama_game_image1](https://user-images.githubusercontent.com/73140191/125521814-848fe0e5-5357-43c4-aa95-a022ec322cb5.jpg)
+
+![futurama_game_image2](https://user-images.githubusercontent.com/73140191/125521828-0aacf7d0-6abe-4131-a02b-54cf373fabdd.jpg)
